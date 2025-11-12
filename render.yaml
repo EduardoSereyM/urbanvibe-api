@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: urbanvibe-api
+    env: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false   # la pondremos en el panel de Render
+      - key: PGSSLMODE
+        value: require
+      - key: ALLOWED_ORIGINS
+        value: http://localhost:5173, http://localhost:19006
+      - key: LOG_LEVEL
+        value: info
