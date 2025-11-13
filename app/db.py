@@ -12,16 +12,20 @@ async def get_pool():
         dsn = os.environ["DATABASE_URL"]
         p = urlparse(dsn)
 
-        # diagnóstico seguro
+        # construir un DSN "seguro" para debug
+        safe_dsn = dsn.replace(p.password, "***") if p.password else dsn
+
+        print(f"[DB] DSN={safe_dsn}")
         print(f"[DB] Using host={p.hostname} user={p.username}")
 
         _pool = await asyncpg.create_pool(
             dsn=dsn,
-            ssl="require",      # 👈 clave: fuerza SSL y no verifica el cert
+            ssl="require",      # seguimos forzando SSL sin validar certificado
             min_size=1,
             max_size=10,
             command_timeout=10,
         )
     return _pool
+
 
 
