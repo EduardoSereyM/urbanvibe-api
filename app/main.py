@@ -22,7 +22,7 @@ app.add_middleware(
 
 
 
-@app.get("/api/v1/health")
+@app.get("/health")
 async def health():
     """
     Healthcheck básico + verificación de conexión a la base de datos.
