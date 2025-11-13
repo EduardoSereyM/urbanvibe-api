@@ -5,13 +5,13 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Query
 
-from ..models import LocalCard, MapPoint
+from ..models import LocalCard, MapPoint, LocalsPage
 from ..db import get_pool
 
 router = APIRouter(tags=["locals"])
 
 
-@router.get("", response_model=List[LocalCard])
+@router.get("", response_model=LocalsPage)
 async def list_locals(
     q: Optional[str] = Query(default=None, min_length=1, max_length=64),
     tags: Optional[List[str]] = Query(default=None),
@@ -29,7 +29,10 @@ async def list_locals(
     # solo buscamos si hay 3+ caracteres
     effective_q = q if q and len(q) >= 3 else None
 
-    sql = """
+    # -----------------------
+    # Query de datos (items)
+    # -----------------------
+    data_sql = """
     SELECT
       l.id,
       l.name,
@@ -83,10 +86,60 @@ async def list_locals(
     LIMIT $7 OFFSET $8;
     """
 
+    # -----------------------
+    # Query de conteo (total)
+    # -----------------------
+    count_sql = """
+    SELECT
+      COUNT(*) AS total
+    FROM public.v1_locals_public AS l
+    WHERE
+      l.estado = 'publicado'
+      AND (
+        $1::text IS NULL
+        OR EXISTS (
+          SELECT 1
+          FROM public.locales AS lx
+          WHERE lx.id = l.id
+            AND lx.fts @@ plainto_tsquery('spanish', $1)
+        )
+      )
+      AND (
+        $2::text[] IS NULL
+        OR EXISTS (
+          SELECT 1
+          FROM public.locales_tags AS lt
+          JOIN public.tags AS t ON t.id = lt.tag_id
+          WHERE lt.local_id = l.id
+            AND t.slug = ANY($2)
+        )
+      )
+      AND (
+        $3::float8 IS NULL
+        OR ST_Intersects(
+             l.geom,
+             ST_MakeEnvelope($3, $4, $5, $6, 4326)
+        )
+      );
+    """
+
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # total
+        count_row = await conn.fetchrow(
+            count_sql,
+            effective_q,
+            tags,
+            min_lon,
+            min_lat,
+            max_lon,
+            max_lat,
+        )
+        total = count_row["total"] if count_row is not None else 0
+
+        # items
         rows = await conn.fetch(
-            sql,
+            data_sql,
             effective_q,
             tags,
             min_lon,
@@ -97,7 +150,14 @@ async def list_locals(
             offset,
         )
 
-    return [dict(r) for r in rows]
+    items = [dict(r) for r in rows]
+
+    return LocalsPage(
+        items=items,
+        limit=limit,
+        offset=offset,
+        total=total,
+    )
 
 
 @router.get("/map", response_model=List[MapPoint])
@@ -154,7 +214,6 @@ async def locals_map(
     result = []
     for r in rows:
         geom = r["geometry"]
-        # ST_AsGeoJSON devuelve texto → lo convertimos a dict
         if isinstance(geom, str):
             try:
                 geom = json.loads(geom)

@@ -1,3 +1,5 @@
+# app/models.py
+
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from uuid import UUID
@@ -36,3 +38,10 @@ class MapPoint(BaseModel):
     id: UUID
     name: str
     geometry: Dict[str, Any]
+
+
+class LocalsPage(BaseModel):
+    items: List[LocalCard]
+    limit: int
+    offset: int
+    total: int
