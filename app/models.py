@@ -45,3 +45,16 @@ class LocalsPage(BaseModel):
     limit: int
     offset: int
     total: int
+
+
+class Tag(BaseModel):
+    id: int
+    nombre: str
+    slug: str
+    categoria: str
+    descripcion: Optional[str] = None
+    icon_url: Optional[str] = None
+
+
+class LocalDetail(LocalCard):
+    tags: List[Tag] = []

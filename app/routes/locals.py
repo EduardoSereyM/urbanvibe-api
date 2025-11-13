@@ -2,10 +2,11 @@
 
 import json
 from typing import List, Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 
-from ..models import LocalCard, MapPoint, LocalsPage
+from ..models import LocalCard, MapPoint, LocalsPage, LocalDetail, Tag
 from ..db import get_pool
 
 router = APIRouter(tags=["locals"])
@@ -229,3 +230,69 @@ async def locals_map(
         )
 
     return result
+
+
+@router.get("/{local_id}", response_model=LocalDetail)
+async def get_local_detail(local_id: UUID):
+    """
+    Devuelve el detalle de un local:
+    - Datos básicos (LocalCard)
+    - Tags asociados
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Datos del local
+        local_row = await conn.fetchrow(
+            """
+            SELECT
+              l.id,
+              l.name,
+              l.description,
+              l.menu_url,
+              l.instagram_url,
+              l.telefono,
+              l.email,
+              l.fundador_badge,
+              l.verificado,
+              l.estado,
+              l.activo,
+              l.lat,
+              l.lon,
+              l.visitas_count,
+              l.favoritos_count,
+              l.actualizaciones_count,
+              l.tags_slug_array,
+              l.created_at,
+              l.updated_at
+            FROM public.v1_locals_public AS l
+            WHERE l.id = $1
+              AND l.estado = 'publicado';
+            """,
+            local_id,
+        )
+
+        if local_row is None:
+            raise HTTPException(status_code=404, detail="Local not found")
+
+        # Tags del local
+        tags_rows = await conn.fetch(
+            """
+            SELECT
+              t.id,
+              t.nombre,
+              t.slug,
+              t.categoria,
+              t.descripcion,
+              t.icon_url
+            FROM public.locales_tags AS lt
+            JOIN public.tags AS t ON t.id = lt.tag_id
+            WHERE lt.local_id = $1
+            ORDER BY t.nombre;
+            """,
+            local_id,
+        )
+
+    local_dict = dict(local_row)
+    local_dict["tags"] = [dict(r) for r in tags_rows]
+
+    return LocalDetail(**local_dict)
