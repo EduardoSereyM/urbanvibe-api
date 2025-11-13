@@ -1,8 +1,8 @@
-# app/models.py
 from pydantic import BaseModel
-from typing import Optional, Dict, List
+from typing import Optional, Dict, Any, List
 from uuid import UUID
 from datetime import datetime
+
 
 class LocalCard(BaseModel):
     id: UUID
@@ -26,15 +26,13 @@ class LocalCard(BaseModel):
     favoritos_count: Optional[int] = None
     actualizaciones_count: Optional[int] = None
 
-    # timestamps tal como vienen de Supabase
+    tags_slug_array: Optional[List[str]] = None
+
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-
-    # si en la vista v1_locals_public incluyes tags_slug_array:
-    tags_slug_array: Optional[List[str]] = None
 
 
 class MapPoint(BaseModel):
     id: UUID
     name: str
-    geometry: Dict
+    geometry: Dict[str, Any]
