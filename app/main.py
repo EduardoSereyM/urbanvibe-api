@@ -45,3 +45,4 @@ async def health():
 
 
 app.include_router(locals_router, prefix="/api/v1/locals")
+app.include_router(tags_router, prefix="/api/v1/tags")  # 👈 monta /tags

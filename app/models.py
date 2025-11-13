@@ -58,3 +58,8 @@ class Tag(BaseModel):
 
 class LocalDetail(LocalCard):
     tags: List[Tag] = []
+
+
+class TagsByCategory(BaseModel):
+    categoria: str
+    tags: List[Tag]
