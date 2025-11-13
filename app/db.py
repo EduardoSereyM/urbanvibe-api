@@ -1,6 +1,5 @@
 # app/db.py
 import os
-import ssl
 import asyncpg
 from typing import Optional
 from urllib.parse import urlparse
@@ -16,12 +15,9 @@ async def get_pool():
         # diagnóstico seguro
         print(f"[DB] Using host={p.hostname} user={p.username}")
 
-        # crear contexto SSL por defecto
-        ssl_ctx = ssl.create_default_context()
-
         _pool = await asyncpg.create_pool(
             dsn=dsn,
-            ssl=ssl_ctx,           # 👈 ESTA ES LA CLAVE
+            ssl="require",      # 👈 clave: fuerza SSL y no verifica el cert
             min_size=1,
             max_size=10,
             command_timeout=10,
