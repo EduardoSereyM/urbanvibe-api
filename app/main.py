@@ -18,8 +18,29 @@ app.add_middleware(
 )
 # ------------
 
+
+
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    """
+    Healthcheck básico + verificación de conexión a la base de datos.
+    """
+    db_status = "ok"
+    detail = None
+
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("SELECT 1;")
+    except Exception as e:
+        db_status = "error"
+        detail = str(e)
+
+    resp = {"status": "ok", "db": db_status}
+    if detail and db_status == "error":
+        resp["detail"] = detail
+
+    return resp
+
 
 app.include_router(locals_router, prefix="/api/v1/locals")
