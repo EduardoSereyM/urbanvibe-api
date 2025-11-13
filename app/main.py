@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routes.locals import router as locals_router
+from .db import get_pool 
 
 app = FastAPI(title="UrbanVibe API v1", version="0.1.0")
 
