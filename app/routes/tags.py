@@ -54,7 +54,6 @@ async def list_tags(
     async with pool.acquire() as conn:
         rows = await conn.fetch(sql, categoria, effective_q)
 
-    # Agrupar por categoría en Python
     grouped: dict[str, list[Tag]] = {}
 
     for r in rows:
@@ -62,7 +61,6 @@ async def list_tags(
         cat = tag_dict["categoria"]
         grouped.setdefault(cat, []).append(Tag(**tag_dict))
 
-    # Convertir a lista de TagsByCategory
     result: List[TagsByCategory] = [
         TagsByCategory(categoria=cat, tags=tags)
         for cat, tags in grouped.items()
