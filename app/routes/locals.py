@@ -1,5 +1,9 @@
-from fastapi import APIRouter, Query
+# app/routes/locals.py
+
+import json
 from typing import List, Optional
+
+from fastapi import APIRouter, Query
 
 from ..models import LocalCard, MapPoint
 from ..db import get_pool
@@ -15,12 +19,14 @@ async def list_locals(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
+    # --- bbox ---
     min_lon = min_lat = max_lon = max_lat = None
     if bbox:
         parts = bbox.split(",")
         if len(parts) == 4:
             min_lon, min_lat, max_lon, max_lat = map(float, parts)
 
+    # solo buscamos si hay 3+ caracteres
     effective_q = q if q and len(q) >= 3 else None
 
     sql = """
@@ -45,7 +51,8 @@ async def list_locals(
       l.created_at,
       l.updated_at
     FROM public.v1_locals_public AS l
-    WHERE 1=1
+    WHERE
+      l.estado = 'publicado'
       AND (
         $1::text IS NULL
         OR EXISTS (
@@ -109,10 +116,10 @@ async def locals_map(
     SELECT
       l.id,
       l.name,
-      ST_AsGeoJSON(l.geom)::json AS geometry
+      ST_AsGeoJSON(l.geom) AS geometry
     FROM public.v1_locals_map AS l
-    WHERE 1=1
-      AND (
+    WHERE
+      (
         $1::text[] IS NULL
         OR EXISTS (
           SELECT 1
@@ -144,7 +151,22 @@ async def locals_map(
             limit,
         )
 
-    return [
-        {"id": r["id"], "name": r["name"], "geometry": r["geometry"]}
-        for r in rows
-    ]
+    result = []
+    for r in rows:
+        geom = r["geometry"]
+        # ST_AsGeoJSON devuelve texto → lo convertimos a dict
+        if isinstance(geom, str):
+            try:
+                geom = json.loads(geom)
+            except json.JSONDecodeError:
+                geom = None
+
+        result.append(
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "geometry": geom,
+            }
+        )
+
+    return result
