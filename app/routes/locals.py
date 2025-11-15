@@ -1,14 +1,16 @@
-# app/routes/locals.py
+"""Rutas relacionadas con locales (listado, mapa y detalle)."""
 
 import json
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
-from ..models import LocalCard, MapPoint, LocalsPage, LocalDetail, Tag
 from ..db import get_pool
+from ..models import LocalCard, LocalDetail, LocalsPage, MapPoint, Tag
 
+# Todos los endpoints de este módulo comparten el tag "locals" en la
+# documentación de FastAPI.
 router = APIRouter(tags=["locals"])
 
 
@@ -20,19 +22,27 @@ async def list_locals(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    # --- bbox ---
+    """Devuelve una página de locales filtrados por texto, tags y/o bounding box."""
+
+    # ------------------------------------------------------------------
+    # Normalización de parámetros de entrada
+    # ------------------------------------------------------------------
+    # Un bounding box (bbox) se representa como cuatro números separados por
+    # comas: lon mínima, lat mínima, lon máxima, lat máxima. Si no se provee un
+    # valor válido, se mantienen en `None` para que la query ignore el filtro.
     min_lon = min_lat = max_lon = max_lat = None
     if bbox:
         parts = bbox.split(",")
         if len(parts) == 4:
             min_lon, min_lat, max_lon, max_lat = map(float, parts)
 
-    # solo buscamos si hay 3+ caracteres
+    # Para evitar búsquedas muy costosas, sólo se realiza la búsqueda textual
+    # cuando se ingresan al menos 3 caracteres. De lo contrario se ignora.
     effective_q = q if q and len(q) >= 3 else None
 
-    # -----------------------
-    # Query de datos (items)
-    # -----------------------
+    # ------------------------------------------------------------------
+    # Consulta SQL principal (obtiene los locales paginados)
+    # ------------------------------------------------------------------
     data_sql = """
     SELECT
       l.id,
@@ -87,9 +97,9 @@ async def list_locals(
     LIMIT $7 OFFSET $8;
     """
 
-    # -----------------------
-    # Query de conteo (total)
-    # -----------------------
+    # ------------------------------------------------------------------
+    # Consulta de conteo (total de elementos para paginación)
+    # ------------------------------------------------------------------
     count_sql = """
     SELECT
       COUNT(*) AS total
@@ -124,9 +134,12 @@ async def list_locals(
       );
     """
 
+    # Se solicita una conexión al pool para ejecutar ambas consultas dentro del
+    # mismo contexto.
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # total
+        # Ejecutamos la consulta de conteo para saber cuántos resultados totales
+        # existen con los filtros aplicados.
         count_row = await conn.fetchrow(
             count_sql,
             effective_q,
@@ -138,7 +151,7 @@ async def list_locals(
         )
         total = count_row["total"] if count_row is not None else 0
 
-        # items
+        # Luego obtenemos la página actual con los datos detallados.
         rows = await conn.fetch(
             data_sql,
             effective_q,
@@ -151,6 +164,8 @@ async def list_locals(
             offset,
         )
 
+    # `asyncpg.Record` no es serializable, por eso convertimos cada fila en
+    # diccionario antes de construir el modelo Pydantic.
     items = [dict(r) for r in rows]
 
     return LocalsPage(
@@ -167,6 +182,9 @@ async def locals_map(
     bbox: Optional[str] = Query(default=None, description="minLon,minLat,maxLon,maxLat"),
     limit: int = Query(default=500, ge=1, le=2000),
 ):
+    """Devuelve puntos geográficos para mostrar locales en un mapa."""
+
+    # Normalizamos el bounding box de la misma forma que en `list_locals`.
     min_lon = min_lat = max_lon = max_lat = None
     if bbox:
         parts = bbox.split(",")
@@ -212,11 +230,14 @@ async def locals_map(
             limit,
         )
 
-    result = []
+    result: List[MapPoint] = []
     for r in rows:
         geom = r["geometry"]
         if isinstance(geom, str):
             try:
+                # Las geometrías vienen como cadenas GeoJSON. Las convertimos en
+                # diccionarios de Python para que FastAPI los serialice
+                # correctamente. Si el JSON es inválido, se deja como `None`.
                 geom = json.loads(geom)
             except json.JSONDecodeError:
                 geom = None
@@ -234,14 +255,11 @@ async def locals_map(
 
 @router.get("/{local_id}", response_model=LocalDetail)
 async def get_local_detail(local_id: UUID):
-    """
-    Devuelve el detalle de un local:
-    - Datos básicos (LocalCard)
-    - Tags asociados
-    """
+    """Obtiene la información detallada de un local publicado."""
+
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Datos del local
+        # Primera consulta: extrae todos los campos del local.
         local_row = await conn.fetchrow(
             """
             SELECT
@@ -272,9 +290,10 @@ async def get_local_detail(local_id: UUID):
         )
 
         if local_row is None:
+            # Si el local no existe o no está publicado devolvemos un 404.
             raise HTTPException(status_code=404, detail="Local not found")
 
-        # Tags del local
+        # Segunda consulta: obtiene todos los tags asociados al local.
         tags_rows = await conn.fetch(
             """
             SELECT
@@ -292,6 +311,8 @@ async def get_local_detail(local_id: UUID):
             local_id,
         )
 
+    # Convertimos el registro principal en diccionario y agregamos la lista de
+    # tags formateada.
     local_dict = dict(local_row)
     local_dict["tags"] = [dict(r) for r in tags_rows]
 

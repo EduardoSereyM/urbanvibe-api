@@ -1,11 +1,11 @@
-# app/routes/tags.py
+"""Rutas que exponen el catálogo de tags."""
 
 from typing import List, Optional
 
 from fastapi import APIRouter, Query
 
-from ..models import Tag, TagsByCategory
 from ..db import get_pool
+from ..models import Tag, TagsByCategory
 
 router = APIRouter(tags=["tags"])
 
@@ -23,13 +23,10 @@ async def list_tags(
         description="Búsqueda por nombre o slug del tag",
     ),
 ):
-    """
-    Devuelve los tags agrupados por categoría.
+    """Recupera los tags agrupados por categoría, aplicando filtros opcionales."""
 
-    - Si se pasa `categoria`, solo incluye esa categoría.
-    - Si se pasa `q`, filtra por nombre o slug que contengan el texto (ILIKE).
-    """
-
+    # Si la cadena de búsqueda tiene menos de 2 caracteres se ignora para evitar
+    # consultas poco eficientes.
     effective_q = q if q and len(q) >= 2 else None
 
     sql = """
@@ -54,6 +51,9 @@ async def list_tags(
     async with pool.acquire() as conn:
         rows = await conn.fetch(sql, categoria, effective_q)
 
+    # Agrupamos los registros por categoría para satisfacer el modelo de
+    # respuesta. `grouped` es un diccionario cuyo valor es la lista de objetos
+    # `Tag` pertenecientes a cada categoría.
     grouped: dict[str, list[Tag]] = {}
 
     for r in rows:
@@ -61,6 +61,8 @@ async def list_tags(
         cat = tag_dict["categoria"]
         grouped.setdefault(cat, []).append(Tag(**tag_dict))
 
+    # Convertimos el diccionario en una lista de `TagsByCategory` para que
+    # FastAPI serialice la respuesta siguiendo el esquema esperado.
     result: List[TagsByCategory] = [
         TagsByCategory(categoria=cat, tags=tags)
         for cat, tags in grouped.items()
