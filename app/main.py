@@ -2,9 +2,10 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from .routes.locals import router as locals_router
+from .routes.tags import router as tags_router
 from .db import get_pool 
-from .routes.tags import router as tags_router   
 
 app = FastAPI(title="UrbanVibe API v1", version="0.1.0")
 
@@ -21,8 +22,7 @@ app.add_middleware(
 # ------------
 
 
-
-@app.get("/health")
+@app.get("/health", tags=["system"])
 async def health():
     """
     Healthcheck básico + verificación de conexión a la base de datos.
@@ -46,4 +46,4 @@ async def health():
 
 
 app.include_router(locals_router, prefix="/api/v1/locals")
-app.include_router(tags_router, prefix="/api/v1/tags")  # 👈 monta /tags
+app.include_router(tags_router, prefix="/api/v1/tags")
