@@ -16,7 +16,10 @@ router = APIRouter(tags=["locals"])
 async def list_locals(
     q: Optional[str] = Query(default=None, min_length=1, max_length=64),
     tags: Optional[List[str]] = Query(default=None),
-    bbox: Optional[str] = Query(default=None, description="minLon,minLat,maxLon,maxLat"),
+    bbox: Optional[str] = Query(
+        default=None,
+        description="minLon,minLat,maxLon,maxLat"
+    ),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
@@ -40,23 +43,23 @@ async def list_locals(
       l.description,
       l.menu_url,
       l.instagram_url,
-      l.telefono,
+      l.phone,
       l.email,
-      l.fundador_badge,
-      l.verificado,
-      l.estado,
-      l.activo,
+      l.founder_badge,
+      l.is_verified,
+      l.status,
+      l.is_active,
       l.lat,
       l.lon,
-      l.visitas_count,
-      l.favoritos_count,
-      l.actualizaciones_count,
+      l.visits_count,
+      l.favorites_count,
+      l.updates_count,
       l.tags_slug_array,
       l.created_at,
       l.updated_at
     FROM public.v1_locals_public AS l
     WHERE
-      l.estado = 'publicado'
+      l.status = 'publicado'
       AND (
         $1::text IS NULL
         OR EXISTS (
@@ -95,7 +98,7 @@ async def list_locals(
       COUNT(*) AS total
     FROM public.v1_locals_public AS l
     WHERE
-      l.estado = 'publicado'
+      l.status = 'publicado'
       AND (
         $1::text IS NULL
         OR EXISTS (
@@ -164,7 +167,10 @@ async def list_locals(
 @router.get("/map", response_model=List[MapPoint])
 async def locals_map(
     tags: Optional[List[str]] = Query(default=None),
-    bbox: Optional[str] = Query(default=None, description="minLon,minLat,maxLon,maxLat"),
+    bbox: Optional[str] = Query(
+        default=None,
+        description="minLon,minLat,maxLon,maxLat"
+    ),
     limit: int = Query(default=500, ge=1, le=2000),
 ):
     min_lon = min_lat = max_lon = max_lat = None
@@ -177,7 +183,9 @@ async def locals_map(
     SELECT
       l.id,
       l.name,
-      ST_AsGeoJSON(l.geom) AS geometry
+      ST_AsGeoJSON(l.geom) AS geometry,
+      l.lat,
+      l.lon
     FROM public.v1_locals_map AS l
     WHERE
       (
@@ -226,6 +234,8 @@ async def locals_map(
                 "id": r["id"],
                 "name": r["name"],
                 "geometry": geom,
+                "lat": r["lat"],
+                "lon": r["lon"],
             }
         )
 
@@ -250,23 +260,23 @@ async def get_local_detail(local_id: UUID):
               l.description,
               l.menu_url,
               l.instagram_url,
-              l.telefono,
+              l.phone,
               l.email,
-              l.fundador_badge,
-              l.verificado,
-              l.estado,
-              l.activo,
+              l.founder_badge,
+              l.is_verified,
+              l.status,
+              l.is_active,
               l.lat,
               l.lon,
-              l.visitas_count,
-              l.favoritos_count,
-              l.actualizaciones_count,
+              l.visits_count,
+              l.favorites_count,
+              l.updates_count,
               l.tags_slug_array,
               l.created_at,
               l.updated_at
             FROM public.v1_locals_public AS l
             WHERE l.id = $1
-              AND l.estado = 'publicado';
+              AND l.status = 'publicado';
             """,
             local_id,
         )
@@ -293,6 +303,7 @@ async def get_local_detail(local_id: UUID):
         )
 
     local_dict = dict(local_row)
+    # Tag usa alias en models.py, así que esto se mapea a name/category/description
     local_dict["tags"] = [dict(r) for r in tags_rows]
 
     return LocalDetail(**local_dict)
