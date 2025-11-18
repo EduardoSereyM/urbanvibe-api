@@ -41,6 +41,8 @@ async def list_locals(
       l.id,
       l.name,
       l.description,
+      l.logo_url,
+      l.cover_image_url,
       l.menu_url,
       l.instagram_url,
       l.phone,
@@ -185,7 +187,8 @@ async def locals_map(
       l.name,
       ST_AsGeoJSON(l.geom) AS geometry,
       l.lat,
-      l.lon
+      l.lon,
+      l.logo_url
     FROM public.v1_locals_map AS l
     WHERE
       (
@@ -236,6 +239,7 @@ async def locals_map(
                 "geometry": geom,
                 "lat": r["lat"],
                 "lon": r["lon"],
+                "logo_url": r["logo_url"],
             }
         )
 
@@ -258,6 +262,8 @@ async def get_local_detail(local_id: UUID):
               l.id,
               l.name,
               l.description,
+              l.logo_url,
+              l.cover_image_url,
               l.menu_url,
               l.instagram_url,
               l.phone,

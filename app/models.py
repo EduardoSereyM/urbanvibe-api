@@ -13,6 +13,8 @@ class LocalCard(BaseModel):
     name: str
 
     description: Optional[str] = None
+    logo_url: Optional[str] = None
+    cover_image_url: Optional[str] = None
     menu_url: Optional[str] = None
     instagram_url: Optional[str] = None
     phone: Optional[str] = None
@@ -43,6 +45,7 @@ class MapPoint(BaseModel):
     geometry: Optional[Dict[str, Any]] = None
     lat: float
     lon: float
+    logo_url: Optional[str] = None
 
 
 class LocalsPage(BaseModel):
