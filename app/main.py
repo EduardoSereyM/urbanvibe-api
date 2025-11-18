@@ -5,7 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .routes.locals import router as locals_router
 from .routes.tags import router as tags_router
+from .routes.users import router as users_router 
 from .db import get_pool 
+
+
 
 app = FastAPI(title="UrbanVibe API v1", version="0.1.0")
 
@@ -47,3 +50,4 @@ async def health():
 
 app.include_router(locals_router, prefix="/api/v1/locals")
 app.include_router(tags_router, prefix="/api/v1/tags")
+app.include_router(users_router, prefix="/api/v1/users")
