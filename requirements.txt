@@ -3,3 +3,4 @@ uvicorn[standard]==0.30.*
 gunicorn==22.*
 asyncpg==0.29.*
 python-dotenv==1.*
+email-validator
