@@ -12,6 +12,7 @@ router = APIRouter()
     response_model=MeResponse,
     summary="Get current authenticated user profile",
     description="Returns the profile stored in public.usuarios for the current user.",
+    tags=["users"],
 )
 async def read_me(current_user: UserProfile = Depends(get_current_active_user)):
     return MeResponse(user=current_user)
